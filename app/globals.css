@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+:root {
+  --bg-primary: #08080A;
+  --surface-card: rgba(18, 18, 22, 0.78);
+  --surface-input: #141418;
+  --accent-beige: #E5D3B3;
+  --accent-sand: #C4AD88;
+  --accent-glow: rgba(229, 211, 179, 0.12);
+  --text-primary: #F5F2EB;
+  --text-muted: #A39E93;
+  --border-default: rgba(229, 211, 179, 0.16);
+  --border-hover: rgba(229, 211, 179, 0.42);
+  --status-success: #6EE7B7;
+  --status-warning: #FCD34D;
+  --status-critical: #FDA4AF;
+}
+
+body {
+  background-color: #08080A;
+  color: #F5F2EB;
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  overflow-x: hidden;
+}
+
+/* Ambient Radial Glow Lighting Over Obsidian Canvas */
+.ambient-lighting-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    radial-gradient(circle at 15% 15%, rgba(229, 211, 179, 0.08), transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(196, 173, 136, 0.06), transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(229, 211, 179, 0.03), transparent 65%);
+}
+
+/* Glassmorphic Specular Highlight Card */
+.luxury-card {
+  background: rgba(18, 18, 22, 0.78);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(229, 211, 179, 0.16);
+  box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(229, 211, 179, 0.15);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.luxury-card:hover {
+  border-color: rgba(229, 211, 179, 0.42);
+}
+
+/* Luxury Primary Button */
+.btn-luxury-primary {
+  background-color: #E5D3B3;
+  color: #08080A;
+  font-weight: 700;
+  transition: all 0.25s ease;
+  box-shadow: 0 0 15px rgba(229, 211, 179, 0.2);
+}
+
+.btn-luxury-primary:hover {
+  background-color: #F0E2C8;
+  box-shadow: 0 0 25px rgba(229, 211, 179, 0.38);
+}
+
+/* Custom Warm Beige & Obsidian Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #08080A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(229, 211, 179, 0.2);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(229, 211, 179, 0.4);
+}

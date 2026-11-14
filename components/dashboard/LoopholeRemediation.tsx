@@ -1,60 +1,36 @@
 "use client";
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, BookOpen, Wrench, FileText, CheckCircle2, Circle } from 'lucide-react';
+import { ShieldAlert, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { LoopholeItem } from '@/lib/types';
 
-interface LoopholeNode {
-  skill?: string;
-  impact?: string;
-  theoryCheck?: string;
-  projectBuild?: string;
-  profileInjection?: string;
-  severity?: 'High' | 'Medium' | 'Low';
-  issue?: string;
-  fixAction?: string;
-  timeframe?: string;
-}
-
 interface Props {
-  missingGaps?: LoopholeNode[];
   loopholes?: LoopholeItem[];
+  missingGaps?: LoopholeItem[];
 }
 
-export const LoopholeRemediation = ({ missingGaps = [], loopholes = [] }: Props) => {
-  const [completedPhases, setCompletedPhases] = useState<Set<string>>(new Set());
+const DEFAULT_LOOPHOLE: LoopholeItem = {
+  severity: 'Critical',
+  title: 'Quantified Impact Metrics',
+  fix: 'Rewrite top 3 project bullets using Google XYZ quantified formula with concrete percentages.',
+  sprint: '15-Min Fix',
+  issue: 'Quantified Impact Metrics',
+  fixAction: 'Rewrite top 3 project bullets using Google XYZ quantified formula with concrete percentages.',
+  timeframe: '15-Min Fix'
+};
 
-  const items: LoopholeNode[] = loopholes.length > 0 
-    ? loopholes 
-    : missingGaps.length > 0 
-      ? missingGaps 
-      : [];
+export const LoopholeRemediation = ({ loopholes = [], missingGaps = [] }: Props) => {
+  const [showMore, setShowMore] = useState(false);
 
-  if (!items || items.length === 0) return null;
+  // Normalize source arrays and guarantee at least 1 actionable loop
+  const rawItems = loopholes.length > 0 ? loopholes : (missingGaps.length > 0 ? missingGaps : []);
+  const items: LoopholeItem[] = rawItems.length > 0 ? rawItems : [DEFAULT_LOOPHOLE];
 
-  const togglePhase = (gapIdx: number, phase: string) => {
-    const id = `${gapIdx}-${phase}`;
-    setCompletedPhases(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const isGapFullyCompleted = (gapIdx: number) => {
-    return (
-      completedPhases.has(`${gapIdx}-theory`) &&
-      completedPhases.has(`${gapIdx}-project`) &&
-      completedPhases.has(`${gapIdx}-profile`)
-    );
-  };
+  // Visible items (1-2 compact items by default, expand on toggle)
+  const visibleItems = showMore ? items : items.slice(0, 2);
 
   return (
     <Card className="bg-[rgba(18,18,22,0.78)] backdrop-blur-xl border border-[rgba(229,211,179,0.16)] hover:border-[rgba(229,211,179,0.42)] transition-all duration-300 shadow-[0_12px_32px_-8px_rgba(0,0,0,0.7),inset_0_1px_0_0_rgba(229,211,179,0.15)] rounded-2xl flex flex-col overflow-hidden mt-6">
@@ -65,138 +41,85 @@ export const LoopholeRemediation = ({ missingGaps = [], loopholes = [] }: Props)
               <ShieldAlert className="w-5 h-5 text-[#E5D3B3]" /> 
               Prioritized Loophole Remediation Roadmap
             </CardTitle>
-            <p className="text-xs text-[#A39E93] mt-1">Targeted sprint protocols with severity weighting to surgically repair critical profile gaps.</p>
+            <p className="text-xs text-[#A39E93] mt-1">
+              Targeted sprint protocols with severity weighting to surgically repair critical profile gaps.
+            </p>
           </div>
-          <Badge className="w-fit bg-[#E5D3B3]/10 text-[#E5D3B3] border border-[#E5D3B3]/25 text-[11px] font-semibold">
-            {items.length} Actionable Loops
+          <Badge className="w-fit bg-[#E5D3B3]/10 text-[#E5D3B3] border border-[#E5D3B3]/25 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wide">
+            {items.length} Actionable {items.length === 1 ? 'Loop' : 'Loops'}
           </Badge>
         </div>
       </CardHeader>
       
-      <CardContent className="p-6 space-y-6">
-        {items.map((gap, idx) => {
-          const completed = isGapFullyCompleted(idx);
-          const skillTitle = gap.skill || gap.issue || `Strategic Gap #${idx + 1}`;
-          const impactText = gap.impact || gap.fixAction || "Targeted remediation required.";
-          const severity = gap.severity || (idx === 0 ? "High" : "Medium");
+      <CardContent className="p-4 sm:p-5 space-y-2.5">
+        {visibleItems.map((gap, idx) => {
+          const rawSeverity = (gap.severity || '').toString().toLowerCase();
+          const isCritical = rawSeverity.includes('critical') || rawSeverity.includes('high') || idx === 0;
+          const severityLabel = isCritical ? 'Critical' : 'Moderate';
           
+          const title = gap.title || gap.skill || gap.issue || `Strategic Gap #${idx + 1}`;
+          const fix = gap.fix || gap.fixAction || gap.impact || 'Inject concrete implementation artifacts into resume project section.';
+          const sprint = gap.sprint || gap.timeframe || (idx === 0 ? '15-Min Fix' : '2-Day Sprint');
+
           return (
             <div 
-              key={idx} 
-              className={`relative p-5 rounded-xl border transition-all duration-500 shadow-lg overflow-hidden
-                ${completed 
-                  ? 'bg-[#121c17] border-[#6EE7B7]/40 shadow-[0_0_20px_rgba(110,231,183,0.1)]' 
-                  : 'bg-[#141418] border-[rgba(229,211,179,0.14)] hover:border-[rgba(229,211,179,0.35)]'
-                }`}
+              key={idx}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:px-4 sm:py-3 rounded-xl bg-[#141418] border border-[rgba(229,211,179,0.12)] hover:border-[rgba(229,211,179,0.32)] transition-all duration-200 shadow-sm"
+              style={{ padding: '12px 16px' }}
             >
-              {/* Glow Accent Line */}
-              <div className={`absolute top-0 left-0 w-1 h-full transition-colors duration-500 ${completed ? 'bg-[#6EE7B7]' : severity === 'High' ? 'bg-[#FDA4AF]' : 'bg-[#E5D3B3]'}`} />
+              <div className="flex items-start sm:items-center gap-3 min-w-0">
+                {/* Severity Badge */}
+                <span className={`px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded-md border whitespace-nowrap shrink-0 mt-0.5 sm:mt-0 ${
+                  isCritical 
+                    ? 'bg-[#FDA4AF]/15 text-[#FDA4AF] border-[#FDA4AF]/30' 
+                    : 'bg-[#E5D3B3]/15 text-[#E5D3B3] border-[#E5D3B3]/30'
+                }`}>
+                  {severityLabel}
+                </span>
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 pl-2">
-                <div>
-                  <h3 className="text-base font-bold text-[#F5F2EB] flex items-center gap-2">
-                    {skillTitle}
-                    {completed && (
-                      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                        <CheckCircle2 className="w-4 h-4 text-[#6EE7B7]" />
-                      </motion.div>
-                    )}
-                  </h3>
-                  <p className="text-xs text-[#A39E93] mt-1 leading-relaxed max-w-2xl">{impactText}</p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Badge className={`uppercase tracking-wider text-[10px] font-bold px-2.5 py-0.5
-                    ${severity === 'High' 
-                      ? 'bg-[#FDA4AF]/15 text-[#FDA4AF] border border-[#FDA4AF]/30' 
-                      : severity === 'Medium' 
-                        ? 'bg-[#FCD34D]/15 text-[#FCD34D] border border-[#FCD34D]/30' 
-                        : 'bg-[#6EE7B7]/15 text-[#6EE7B7] border border-[#6EE7B7]/30'}
-                  `}>
-                    {severity} Severity
-                  </Badge>
-
-                  {completed && (
-                    <span className="text-[10px] font-semibold text-[#6EE7B7] bg-[#6EE7B7]/10 px-2 py-0.5 rounded border border-[#6EE7B7]/25">
-                      Resolved
-                    </span>
-                  )}
+                {/* Title & Fix Description */}
+                <div className="min-w-0 flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                  <span className="text-sm font-semibold text-[#F5F2EB] truncate shrink-0">
+                    {title}
+                  </span>
+                  <span className="text-xs text-[#A39E93] leading-relaxed truncate sm:whitespace-normal font-sans">
+                    {fix}
+                  </span>
                 </div>
               </div>
 
-              {/* Vertical Timeline Nodes */}
-              <div className="ml-3 pl-4 border-l border-[rgba(229,211,179,0.12)] space-y-4 relative mt-4">
-                
-                {/* Phase 1 */}
-                <div 
-                  className="relative group cursor-pointer"
-                  onClick={() => togglePhase(idx, 'theory')}
-                >
-                  <div className="absolute -left-[23px] top-0.5 rounded-full p-0.5 bg-[#141418]">
-                    {completedPhases.has(`${idx}-theory`) ? (
-                      <CheckCircle2 className="w-4 h-4 text-[#6EE7B7]" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-[#A39E93] group-hover:text-[#E5D3B3] transition-colors" />
-                    )}
-                  </div>
-                  <div className={`transition-all duration-300 ${completedPhases.has(`${idx}-theory`) ? 'opacity-50' : 'opacity-100 group-hover:translate-x-1'}`}>
-                    <h4 className="text-xs font-bold text-[#E5D3B3] flex items-center gap-1.5 mb-0.5">
-                      <BookOpen className="w-3.5 h-3.5" /> Phase 1: Theoretical Depth
-                    </h4>
-                    <p className="text-xs text-[#A39E93] leading-relaxed">
-                      {gap.theoryCheck || "Master the architectural foundations and trade-offs."}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Phase 2 */}
-                <div 
-                  className="relative group cursor-pointer"
-                  onClick={() => togglePhase(idx, 'project')}
-                >
-                  <div className="absolute -left-[23px] top-0.5 rounded-full p-0.5 bg-[#141418]">
-                    {completedPhases.has(`${idx}-project`) ? (
-                      <CheckCircle2 className="w-4 h-4 text-[#6EE7B7]" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-[#A39E93] group-hover:text-[#E5D3B3] transition-colors" />
-                    )}
-                  </div>
-                  <div className={`transition-all duration-300 ${completedPhases.has(`${idx}-project`) ? 'opacity-50' : 'opacity-100 group-hover:translate-x-1'}`}>
-                    <h4 className="text-xs font-bold text-[#E5D3B3] flex items-center gap-1.5 mb-0.5">
-                      <Wrench className="w-3.5 h-3.5" /> Phase 2: Hands-on Project Sprint
-                    </h4>
-                    <p className="text-xs text-[#A39E93] leading-relaxed">
-                      {gap.projectBuild || "Build and benchmark a working demonstration repository."}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Phase 3 */}
-                <div 
-                  className="relative group cursor-pointer"
-                  onClick={() => togglePhase(idx, 'profile')}
-                >
-                  <div className="absolute -left-[23px] top-0.5 rounded-full p-0.5 bg-[#141418]">
-                    {completedPhases.has(`${idx}-profile`) ? (
-                      <CheckCircle2 className="w-4 h-4 text-[#6EE7B7]" />
-                    ) : (
-                      <Circle className="w-4 h-4 text-[#A39E93] group-hover:text-[#E5D3B3] transition-colors" />
-                    )}
-                  </div>
-                  <div className={`transition-all duration-300 ${completedPhases.has(`${idx}-profile`) ? 'opacity-50' : 'opacity-100 group-hover:translate-x-1'}`}>
-                    <h4 className="text-xs font-bold text-[#E5D3B3] flex items-center gap-1.5 mb-0.5">
-                      <FileText className="w-3.5 h-3.5" /> Phase 3: Resume & Verification Injection
-                    </h4>
-                    <p className="text-xs text-[#A39E93] leading-relaxed">
-                      {gap.profileInjection || "Update resume bullet points with concrete metrics and GitHub proof."}
-                    </p>
-                  </div>
-                </div>
-
+              {/* Sprint Duration Pill */}
+              <div className="self-end sm:self-center shrink-0">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium text-[#E5D3B3] bg-[#E5D3B3]/10 border border-[#E5D3B3]/25 px-2.5 py-1 rounded-full whitespace-nowrap shadow-[0_0_8px_rgba(229,211,179,0.08)]">
+                  <Zap className="w-3 h-3 text-[#E5D3B3]" />
+                  {sprint}
+                </span>
               </div>
             </div>
           );
         })}
+
+        {/* Compact Toggle if 3+ items exist */}
+        {items.length > 2 && (
+          <div className="pt-1 flex justify-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMore(!showMore)}
+              className="text-xs text-[#E5D3B3] hover:text-[#F5F2EB] hover:bg-[#E5D3B3]/10 h-7 px-3 rounded-lg flex items-center gap-1.5 transition-all"
+            >
+              {showMore ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" /> Show Fewer Loops
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" /> + Show More ({items.length - 2} more)
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

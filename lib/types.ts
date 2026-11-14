@@ -12,10 +12,14 @@ export interface RadarMetric {
 }
 
 export interface LoopholeItem {
-  severity: 'High' | 'Medium' | 'Low';
-  issue: string;
-  fixAction: string;
-  timeframe: string;
+  severity: 'Critical' | 'Moderate' | 'High' | 'Medium' | 'Low' | string;
+  title?: string;
+  fix?: string;
+  sprint?: string;
+  // Backward compatibility fields
+  issue?: string;
+  fixAction?: string;
+  timeframe?: string;
   skill?: string;
   impact?: string;
   theoryCheck?: string;

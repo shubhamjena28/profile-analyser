@@ -156,6 +156,7 @@ export async function POST(request: Request) {
   let userName = 'Candidate';
   let userStatus = 'Student';
   let targetObjective = 'Internship Readiness';
+  let targetRole = 'AI/ML Engineer';
   let randomSeed = Date.now().toString();
 
   let promptContent: any[] = [];
@@ -170,6 +171,7 @@ export async function POST(request: Request) {
       userName = data.userName || 'Candidate';
       userStatus = data.userStatus || 'Student';
       targetObjective = data.targetObjective || 'Internship Readiness';
+      targetRole = data.targetRole || 'AI/ML Engineer';
       randomSeed = request.headers.get('x-random-seed') || Date.now().toString();
       
       promptContent = [
@@ -182,6 +184,7 @@ export async function POST(request: Request) {
       userName = formData.get('userName') as string || 'Candidate';
       userStatus = formData.get('userStatus') as string || 'Student';
       targetObjective = formData.get('targetObjective') as string || 'Internship Readiness';
+      targetRole = (formData.get('targetRole') as string) || 'AI/ML Engineer';
       randomSeed = request.headers.get('x-random-seed') || Date.now().toString();
       
       const file = formData.get('file') as File;
@@ -211,7 +214,7 @@ export async function POST(request: Request) {
 
     if (!apiKey) {
       await sleep(800); 
-      const deterministicResult = analyzeProfileDeterministically(resumeText, targetObjective, jobDescription, userName);
+      const deterministicResult = analyzeProfileDeterministically(resumeText, targetRole, jobDescription, userName);
       return NextResponse.json(deterministicResult);
     }
 
@@ -494,8 +497,15 @@ Calculate the 'score' (out of 100) and aggressively map all required intelligenc
         
         if (response && response.text) {
           const rawText = response.text.trim();
-          const sanitizedText = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
-          parsedData = JSON.parse(sanitizedText);
+          const firstBrace = rawText.indexOf('{');
+          const lastBrace = rawText.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            const jsonSubstring = rawText.substring(firstBrace, lastBrace + 1);
+            parsedData = JSON.parse(jsonSubstring);
+          } else {
+            const sanitizedText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+            parsedData = JSON.parse(sanitizedText);
+          }
           console.log(`Success and parsed valid JSON with model: ${modelName}`);
           break; // Stop loop on success
         }
@@ -506,7 +516,7 @@ Calculate the 'score' (out of 100) and aggressively map all required intelligenc
       }
     }
 
-    const deterministicBaseline = analyzeProfileDeterministically(resumeText, targetObjective, jobDescription, userName);
+    const deterministicBaseline = analyzeProfileDeterministically(resumeText, targetRole, jobDescription, userName);
 
     if (!parsedData) {
       console.warn("All model attempts failed or could not be parsed. Generating high-fidelity fallback analysis.", lastError?.message);
@@ -522,7 +532,21 @@ Calculate the 'score' (out of 100) and aggressively map all required intelligenc
         radarMetrics: parsedData.radarMetrics || deterministicBaseline.radarMetrics,
         matchedKeywords: parsedData.matchedKeywords || parsedData.keywordAnalysis?.matched || deterministicBaseline.matchedKeywords,
         missingKeywords: parsedData.missingKeywords || parsedData.keywordAnalysis?.missing || deterministicBaseline.missingKeywords,
-        loopholes: (parsedData.loopholes && parsedData.loopholes.length > 0) ? parsedData.loopholes : deterministicBaseline.loopholes,
+        candidateName: userName || parsedData.candidateName || deterministicBaseline.candidateName,
+        targetRole: targetRole || parsedData.targetRole || deterministicBaseline.targetRole,
+        loopholes: (parsedData.loopholes && parsedData.loopholes.length > 0) 
+          ? parsedData.loopholes.map((l: any, i: number) => ({
+              severity: l.severity || (i === 0 ? "Critical" : "Moderate"),
+              title: l.title || l.skill || l.issue || "Strategic Stack Gap",
+              fix: l.fix || l.fixAction || l.impact || "Address specific technical gap.",
+              sprint: l.sprint || l.timeframe || (i === 0 ? "15-Min Fix" : "2-Day Sprint"),
+              issue: l.issue || l.title || "Strategic Stack Gap",
+              fixAction: l.fixAction || l.fix || "Address specific technical gap.",
+              timeframe: l.timeframe || l.sprint || (i === 0 ? "15-Min Fix" : "2-Day Sprint"),
+              skill: l.skill || l.title || "Core Stack",
+              impact: l.impact || l.fix || "Screening automation alignment."
+            }))
+          : deterministicBaseline.loopholes,
         bulletRewrites: (parsedData.bulletRewrites && parsedData.bulletRewrites.length > 0) 
           ? parsedData.bulletRewrites.map((b: any) => ({
               original: b.original,
@@ -555,7 +579,7 @@ Calculate the 'score' (out of 100) and aggressively map all required intelligenc
 
   } catch (error: any) {
     console.error('CRITICAL LOGIC FAILURE IN /api/analyze, triggering deterministic zero-fail engine:', error);
-    const safeFallback = analyzeProfileDeterministically(resumeText, targetObjective, jobDescription, userName);
+    const safeFallback = analyzeProfileDeterministically(resumeText, targetRole, jobDescription, userName);
     return NextResponse.json(safeFallback);
   }
 }

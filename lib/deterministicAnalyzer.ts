@@ -391,10 +391,13 @@ export function analyzeProfileDeterministically(
   // 8. Generate Prioritized Loophole Roadmap (with High/Medium/Low badges)
   const loopholes = [
     {
-      severity: (missingKeywords.length > 2 ? "High" : "Medium") as 'High' | 'Medium' | 'Low',
+      severity: (missingKeywords.length > 2 ? "Critical" : "Moderate") as 'Critical' | 'Moderate',
+      title: `Missing ${missingKeywords[0] || "Cloud Stack"} Alignment`,
+      fix: `Inject targeted implementation evidence for ${missingKeywords[0] || "production cloud orchestration"} into project section.`,
+      sprint: "15-Min Fix",
       issue: `Missing Mission-Critical Stack Alignment: [${missingKeywords.slice(0, 3).join(", ") || "Cloud Architecture"}]`,
       fixAction: `Inject targeted implementation evidence for ${missingKeywords[0] || "production cloud orchestration"} into project section.`,
-      timeframe: "Week 1: Foundations & Architecture",
+      timeframe: "15-Min Fix",
       skill: missingKeywords[0] || "Cloud Architecture",
       impact: "High priority for baseline screening automation filters.",
       theoryCheck: `Master operational trade-offs and concurrency models in ${missingKeywords[0] || "Cloud systems"}.`,
@@ -402,10 +405,13 @@ export function analyzeProfileDeterministically(
       profileInjection: `Demonstrate hands-on benchmark metrics and deployment links in resume.`
     },
     {
-      severity: (metricsCount < 3 ? "High" : "Medium") as 'High' | 'Medium' | 'Low',
+      severity: (metricsCount < 3 ? "Critical" : "Moderate") as 'Critical' | 'Moderate',
+      title: "Quantified Impact Metrics",
+      fix: "Rewrite top 3 project bullets using Google XYZ quantified formula with concrete percentages.",
+      sprint: "15-Min Fix",
       issue: "Impact Metric Deficit: Project bullets lack measurable business/performance metrics",
       fixAction: "Reformat project descriptions using the Google XYZ formula (X accomplished, Y measured, Z done).",
-      timeframe: "Week 2: Quantifiable Refactoring",
+      timeframe: "15-Min Fix",
       skill: "Quantified Engineering",
       impact: "Distinguishes junior code writers from impact-driven software engineers.",
       theoryCheck: "Study system observability, benchmarking, and throughput calculation.",
@@ -413,10 +419,13 @@ export function analyzeProfileDeterministically(
       profileInjection: "Update resume bullet points with concrete latency, scale, and accuracy figures."
     },
     {
-      severity: (cloudDevOpsScore < 60 ? "Medium" : "Low") as 'High' | 'Medium' | 'Low',
+      severity: "Moderate" as 'Critical' | 'Moderate',
+      title: "Production Deployment Signals",
+      fix: "Add GitHub Actions workflows and Dockerfiles to top pinned repositories.",
+      sprint: "2-Day Sprint",
       issue: "DevOps & Production Delivery Signals: Limited proof of CI/CD or containerization",
       fixAction: "Add GitHub Actions workflows and Dockerfiles to top pinned repositories.",
-      timeframe: "Week 3: Containerization & CI/CD",
+      timeframe: "2-Day Sprint",
       skill: "Containerization & CI/CD",
       impact: "Essential for modern engineering team workflows and zero-friction onboarding.",
       theoryCheck: "Understand multi-stage Docker builds and automated lint/test validation.",

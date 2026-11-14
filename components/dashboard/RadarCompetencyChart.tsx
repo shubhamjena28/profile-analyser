@@ -27,6 +27,13 @@ const CustomRadarTooltip = ({ active, payload }: any) => {
 };
 
 export const RadarCompetencyChart = ({ metrics }: RadarChartProps) => {
+  const [hasMounted, setHasMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => setHasMounted(true), 600);
+    return () => clearTimeout(timer);
+  }, []);
+
   const chartData = metrics && metrics.length > 0 ? metrics : [
     { subject: "Core CS & DSA", score: 65, fullMark: 100 },
     { subject: "AI/ML & Data", score: 70, fullMark: 100 },
@@ -71,6 +78,7 @@ export const RadarCompetencyChart = ({ metrics }: RadarChartProps) => {
               strokeWidth={2}
               fill="#E5D3B3"
               fillOpacity={0.28}
+              isAnimationActive={!hasMounted}
             />
           </RadarChart>
         </ResponsiveContainer>

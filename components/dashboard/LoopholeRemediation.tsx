@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ShieldAlert, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { ShieldAlert, ChevronDown, ChevronUp, Zap, ArrowRight } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { LoopholeItem } from '@/lib/types';
 interface Props {
   loopholes?: LoopholeItem[];
   missingGaps?: LoopholeItem[];
+  onNavigateSection?: (sectionId: "bullet-rewriter" | "interview-prep") => void;
 }
 
 const DEFAULT_LOOPHOLE: LoopholeItem = {
@@ -22,7 +23,7 @@ const DEFAULT_LOOPHOLE: LoopholeItem = {
   timeframe: '15-Min Fix'
 };
 
-export const LoopholeRemediation = ({ loopholes = [], missingGaps = [] }: Props) => {
+export const LoopholeRemediation = ({ loopholes = [], missingGaps = [], onNavigateSection }: Props) => {
   const [showMore, setShowMore] = useState(false);
 
   // Normalize source arrays and guarantee at least 1 actionable loop
@@ -61,6 +62,10 @@ export const LoopholeRemediation = ({ loopholes = [], missingGaps = [] }: Props)
           const fix = gap.fix || gap.fixAction || gap.impact || 'Inject concrete implementation artifacts into resume project section.';
           const sprint = gap.sprint || gap.timeframe || (idx === 0 ? '15-Min Fix' : '2-Day Sprint');
 
+          const isInterviewRelated = (title + fix).toLowerCase().includes('interview') || (title + fix).toLowerCase().includes('theory') || (title + fix).toLowerCase().includes('scenario');
+          const targetSection = isInterviewRelated ? 'interview-prep' : 'bullet-rewriter';
+          const actionLabel = isInterviewRelated ? 'Practice in Interview' : 'Fix in Rewriter';
+
           return (
             <div 
               key={idx}
@@ -88,12 +93,23 @@ export const LoopholeRemediation = ({ loopholes = [], missingGaps = [] }: Props)
                 </div>
               </div>
 
-              {/* Sprint Duration Pill */}
-              <div className="self-end sm:self-center shrink-0">
+              {/* Sprint Duration Pill & Shortcut Action Button */}
+              <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                 <span className="inline-flex items-center gap-1.5 text-[11px] font-mono font-medium text-[#E5D3B3] bg-[#E5D3B3]/10 border border-[#E5D3B3]/25 px-2.5 py-1 rounded-full whitespace-nowrap shadow-[0_0_8px_rgba(229,211,179,0.08)]">
                   <Zap className="w-3 h-3 text-[#E5D3B3]" />
                   {sprint}
                 </span>
+
+                {onNavigateSection && (
+                  <button
+                    onClick={() => onNavigateSection(targetSection)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#E5D3B3] hover:text-[#08080A] bg-[#18181D] hover:bg-[#E5D3B3] border border-[rgba(229,211,179,0.25)] hover:border-[#E5D3B3] px-2.5 py-1 rounded-lg transition-all shadow-sm"
+                    title={`Jump directly to ${actionLabel}`}
+                  >
+                    <span>{actionLabel}</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           );

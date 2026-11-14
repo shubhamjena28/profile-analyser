@@ -18,6 +18,7 @@ import { XYZBulletRewriter } from "@/components/dashboard/XYZBulletRewriter";
 import { GitHubValidator } from "@/components/dashboard/GitHubValidator";
 import { LoopholeRemediation } from "@/components/dashboard/LoopholeRemediation";
 import { InterviewQuestionBank } from "@/components/dashboard/InterviewQuestionBank";
+import { WorkspaceNavBar, NavSectionId, ViewMode } from "@/components/dashboard/WorkspaceNavBar";
 import { AIAssistantWidget } from "@/components/chat/AIAssistantWidget";
 import { saveAnalysisHistory, getAnalysisHistory, AnalysisHistory } from "@/lib/utils";
 import { analyzeProfileDeterministically, generateDefaultQuestionSets, ROLE_SKILL_REQUIREMENTS } from "@/lib/deterministicAnalyzer";
@@ -160,43 +161,6 @@ const AIProcessingCard = () => {
   );
 };
 
-const MiniNavHub = ({ activeSection }: { activeSection: string }) => {
-  const navItems = [
-    { id: "profile-gate", label: "1. ATS Metrics" },
-    { id: "target-alignment", label: "2. Radar & Stack Matrix" },
-    { id: "project-analytics", label: "3. Impact Bullet Rewriter" },
-    { id: "interview-workspace", label: "4. Interview Workspace" }
-  ];
-
-  const handleNavClick = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  return (
-    <div className="hidden lg:flex items-center gap-2 mx-4 bg-[#121216]/90 border border-[rgba(229,211,179,0.16)] rounded-full px-4 py-1.5 backdrop-blur-md shadow-lg overflow-x-auto">
-      {navItems.map((item) => {
-        const isActive = activeSection === item.id;
-        return (
-          <button
-            key={item.id}
-            onClick={() => handleNavClick(item.id)}
-            className={`text-[11px] font-bold uppercase tracking-wider px-3 py-1.5 transition-all duration-300 rounded-full whitespace-nowrap
-              ${isActive 
-                ? "text-[#08080A] bg-[#E5D3B3] font-bold shadow-[0_0_12px_rgba(229,211,179,0.3)]" 
-                : "text-[#A39E93] hover:text-[#F5F2EB] hover:bg-[#141418]"
-              }`}
-          >
-            {item.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
 export default function Home() {
   // Candidate Profile State
   const [userName, setUserName] = useState("Alex Rivera");
@@ -219,10 +183,32 @@ export default function Home() {
   const [result, setResult] = useState<ProfileAnalysisResult | null>(null);
   const [historyList, setHistoryList] = useState<AnalysisHistory[]>([]);
 
+  // Navigation & View Mode State
+  const [activeNavSection, setActiveNavSection] = useState<NavSectionId>("overview-radar");
+  const [viewMode, setViewMode] = useState<ViewMode>("scroll");
+
   // Scroll State
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [activeSection, setActiveSection] = useState("profile-gate");
+  const [activeSection, setActiveSection] = useState("overview-radar");
+
+  const handleSelectNavSection = (sectionId: NavSectionId) => {
+    setActiveNavSection(sectionId);
+    if (viewMode === "scroll") {
+      const el = document.getElementById(sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  };
+
+  const handleResetWorkspace = () => {
+    setResult(null);
+    setUploadedFile(null);
+    setPastedResumeText("");
+    setActiveNavSection("overview-radar");
+    toast.info("Workspace Reset", { description: "Ready to upload or test another profile." });
+  };
 
   useEffect(() => {
     // Load historical snapshots
@@ -313,29 +299,40 @@ export default function Home() {
     const maxScroll = target.scrollHeight - target.clientHeight;
     const progress = maxScroll > 0 ? (scrolled / maxScroll) * 100 : 0;
     setScrollProgress(progress);
-    setShowScrollTop(scrolled > 300);
+    setShowScrollTop(scrolled > 400);
 
-    const sections = ['profile-gate', 'target-alignment', 'project-analytics', 'interview-workspace'];
-    let current = activeSection;
-    for (let i = sections.length - 1; i >= 0; i--) {
-      const el = document.getElementById(sections[i]);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= 400) {
-          current = sections[i];
-          break;
+    if (viewMode === "scroll") {
+      const sections: NavSectionId[] = [
+        "overview-radar",
+        "loophole-roadmap",
+        "bullet-rewriter",
+        "interview-prep"
+      ];
+      let current = activeNavSection;
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const el = document.getElementById(sections[i]);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 300) {
+            current = sections[i];
+            break;
+          }
         }
       }
-    }
-    if (current !== activeSection) {
-      setActiveSection(current);
+      if (current !== activeNavSection) {
+        setActiveNavSection(current);
+      }
     }
   };
 
   const scrollToTop = () => {
-    const container = document.getElementById('dashboard-scroll-container');
-    if (container) {
-      container.scrollTo({ top: 0, behavior: 'smooth' });
+    const analyticsContainer = document.getElementById('analytics-scroll-container');
+    if (analyticsContainer) {
+      analyticsContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    const dashboardContainer = document.getElementById('dashboard-scroll-container');
+    if (dashboardContainer) {
+      dashboardContainer.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -634,8 +631,6 @@ export default function Home() {
                       </h1>
                     </div>
 
-                    {result && <MiniNavHub activeSection={activeSection} />}
-
                     <div className="flex items-center gap-3">
                       <div className="hidden sm:flex items-center gap-2 bg-[#121216] border border-[rgba(229,211,179,0.16)] px-3 py-1.5 rounded-full text-xs">
                         <User className="w-3.5 h-3.5 text-[#E5D3B3]" />
@@ -927,54 +922,149 @@ export default function Home() {
 
                             {/* SCROLLABLE DETAILED ANALYTICS VIEW */}
                             <div 
-                              className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-8"
+                              id="analytics-scroll-container"
+                              className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6"
+                              style={{ scrollBehavior: 'smooth' }}
                               onScroll={handleRightPanelScroll}
                             >
-                              {/* 1. 4-Subscore ATS Metrics */}
-                              <div id="profile-gate">
-                                <TopMetrics result={result} />
+                              {/* Sticky Glassmorphic Floating Navbar */}
+                              <WorkspaceNavBar 
+                                activeSection={activeNavSection}
+                                onSelectSection={handleSelectNavSection}
+                                loopholeCount={result.loopholes?.length || 0}
+                                viewMode={viewMode}
+                                onToggleViewMode={setViewMode}
+                                onReset={handleResetWorkspace}
+                              />
+
+                              {/* SECTION 1: Overview & Radar */}
+                              <div 
+                                id="overview-radar" 
+                                className="scroll-mt-24 space-y-6"
+                                style={{ display: viewMode === "tabs" && activeNavSection !== "overview-radar" ? "none" : "block" }}
+                              >
+                                {viewMode === "tabs" ? (
+                                  <motion.div
+                                    key="tab-overview"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                                    className="space-y-6"
+                                  >
+                                    <TopMetrics result={result} />
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                      <div className="lg:col-span-6">
+                                        <RadarCompetencyChart metrics={result.radarMetrics} />
+                                      </div>
+                                      <div className="lg:col-span-6">
+                                        <KeywordGapMatrix 
+                                          matchedKeywords={result.matchedKeywords}
+                                          missingKeywords={result.missingKeywords}
+                                          targetRole={targetRole}
+                                        />
+                                      </div>
+                                    </div>
+                                    <GitHubValidator 
+                                      claimedSkills={result.matchedKeywords} 
+                                      initialUsername={githubUsername}
+                                    />
+                                  </motion.div>
+                                ) : (
+                                  <>
+                                    <TopMetrics result={result} />
+                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                                      <div className="lg:col-span-6">
+                                        <RadarCompetencyChart metrics={result.radarMetrics} />
+                                      </div>
+                                      <div className="lg:col-span-6">
+                                        <KeywordGapMatrix 
+                                          matchedKeywords={result.matchedKeywords}
+                                          missingKeywords={result.missingKeywords}
+                                          targetRole={targetRole}
+                                        />
+                                      </div>
+                                    </div>
+                                    <GitHubValidator 
+                                      claimedSkills={result.matchedKeywords} 
+                                      initialUsername={githubUsername}
+                                    />
+                                  </>
+                                )}
                               </div>
 
-                              {/* 2. 6-Axis Radar Chart & Matched Keywords Grid */}
-                              <div id="target-alignment" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                                <div className="lg:col-span-6">
-                                  <RadarCompetencyChart metrics={result.radarMetrics} />
-                                </div>
-                                <div className="lg:col-span-6">
-                                  <KeywordGapMatrix 
-                                    matchedKeywords={result.matchedKeywords}
-                                    missingKeywords={result.missingKeywords}
-                                    targetRole={targetRole}
+                              {/* SECTION 2: Loophole Roadmap */}
+                              <div 
+                                id="loophole-roadmap" 
+                                className="scroll-mt-24"
+                                style={{ display: viewMode === "tabs" && activeNavSection !== "loophole-roadmap" ? "none" : "block" }}
+                              >
+                                {viewMode === "tabs" ? (
+                                  <motion.div
+                                    key="tab-roadmap"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                                  >
+                                    <LoopholeRemediation 
+                                      loopholes={result.loopholes}
+                                      missingGaps={result.skillGap?.missing as any}
+                                      onNavigateSection={(target) => handleSelectNavSection(target)}
+                                    />
+                                  </motion.div>
+                                ) : (
+                                  <LoopholeRemediation 
+                                    loopholes={result.loopholes}
+                                    missingGaps={result.skillGap?.missing as any}
+                                    onNavigateSection={(target) => handleSelectNavSection(target)}
                                   />
-                                </div>
+                                )}
                               </div>
 
-                              {/* 3. Interactive XYZ Bullet-Point Rewriter */}
-                              <div id="project-analytics">
-                                <XYZBulletRewriter rewrites={result.bulletRewrites} />
+                              {/* SECTION 3: XYZ Bullet Rewriter */}
+                              <div 
+                                id="bullet-rewriter" 
+                                className="scroll-mt-24"
+                                style={{ display: viewMode === "tabs" && activeNavSection !== "bullet-rewriter" ? "none" : "block" }}
+                              >
+                                {viewMode === "tabs" ? (
+                                  <motion.div
+                                    key="tab-bullets"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                                  >
+                                    <XYZBulletRewriter rewrites={result.bulletRewrites} />
+                                  </motion.div>
+                                ) : (
+                                  <XYZBulletRewriter rewrites={result.bulletRewrites} />
+                                )}
                               </div>
 
-                              {/* 4. Optional Live GitHub Signal Footprint */}
-                              <GitHubValidator 
-                                claimedSkills={result.matchedKeywords} 
-                                initialUsername={githubUsername}
-                              />
-
-                              {/* 5. Prioritized Loophole Remediation Roadmap */}
-                              <LoopholeRemediation 
-                                loopholes={result.loopholes}
-                                missingGaps={result.skillGap?.missing as any}
-                              />
-
-                              {/* 6. Customized Technical Interview Questions Bank */}
-                              <div id="interview-workspace">
-                                <InterviewQuestionBank 
-                                  initialSets={result.question_sets || generateDefaultQuestionSets(targetRole, result.matchedKeywords || ["Python", "FastAPI"], pastedResumeText)}
-                                  onFetchFreshBatch={fetchFreshInterviewBatch}
-                                />
+                              {/* SECTION 4: Interview Prep */}
+                              <div 
+                                id="interview-prep" 
+                                className="scroll-mt-24"
+                                style={{ display: viewMode === "tabs" && activeNavSection !== "interview-prep" ? "none" : "block" }}
+                              >
+                                {viewMode === "tabs" ? (
+                                  <motion.div
+                                    key="tab-interview"
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                                  >
+                                    <InterviewQuestionBank 
+                                      initialSets={result.question_sets || generateDefaultQuestionSets(targetRole, result.matchedKeywords || ["Python", "FastAPI"], pastedResumeText)}
+                                      onFetchFreshBatch={fetchFreshInterviewBatch}
+                                    />
+                                  </motion.div>
+                                ) : (
+                                  <InterviewQuestionBank 
+                                    initialSets={result.question_sets || generateDefaultQuestionSets(targetRole, result.matchedKeywords || ["Python", "FastAPI"], pastedResumeText)}
+                                    onFetchFreshBatch={fetchFreshInterviewBatch}
+                                  />
+                                )}
                               </div>
-
-
 
                             </div>
                           </div>
@@ -1063,6 +1153,37 @@ export default function Home() {
             </div>
           </div>
         )}
+
+        {/* Floating Back to Top / Re-Analyze Mini Pill */}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.88, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.88, y: 16 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed bottom-6 right-6 z-50 flex items-center gap-2 p-1.5 rounded-full bg-[rgba(14,14,18,0.85)] backdrop-blur-xl border border-[rgba(229,211,179,0.25)] shadow-[0_16px_36px_-8px_rgba(0,0,0,0.8),inset_0_1px_0_0_rgba(229,211,179,0.15)]"
+            >
+              <button
+                onClick={scrollToTop}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#F5F2EB] hover:text-[#08080A] bg-[#141418] hover:bg-[#E5D3B3] transition-all"
+                title="Scroll smoothly to top"
+              >
+                <ChevronUp className="w-3.5 h-3.5" />
+                <span>Top</span>
+              </button>
+              <button
+                onClick={handleAnalyze}
+                disabled={isAnalyzing}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold text-[#08080A] bg-[#E5D3B3] hover:bg-[#F0E2C8] transition-all shadow-[0_0_12px_rgba(229,211,179,0.3)] disabled:opacity-50"
+                title="Re-run assessment"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Re-Analyze</span>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* AI Assistant Widget */}
         {result && <AIAssistantWidget profileContext={result} />}

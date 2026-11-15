@@ -46,7 +46,7 @@ export const WorkspaceNavBar = ({
     },
     {
       id: "bullet-rewriter" as NavSectionId,
-      label: "XYZ Bullet Rewriter",
+      label: "Impact Bullet Rewriter",
       icon: Sparkles,
       shortcut: "3"
     },

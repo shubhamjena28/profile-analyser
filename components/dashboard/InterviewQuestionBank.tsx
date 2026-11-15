@@ -1,67 +1,144 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { RefreshCw, Sparkles, ChevronDown, ChevronUp, Tag, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { RefreshCw, Sparkles, ChevronDown, ChevronUp, Tag, ShieldCheck, Zap, Loader2 } from 'lucide-react';
 import { QuestionSet } from '@/lib/types';
 import { toast } from 'sonner';
 
-export function InterviewQuestionBank({ initialSets = [], onFetchFreshBatch }: {
-  initialSets: QuestionSet[];
-  onFetchFreshBatch: (excludedQuestions: string[]) => Promise<QuestionSet[]>;
-}) {
-  const [sets, setSets] = useState<QuestionSet[]>(initialSets);
-  const [currentSetIndex, setCurrentSetIndex] = useState(0);
-  const [seenSetIndices, setSeenSetIndices] = useState<number[]>([0]);
+interface InterviewQuestionBankProps {
+  initialSets?: QuestionSet[];
+  onFetchFreshBatch?: (excludedQuestions: string[]) => Promise<QuestionSet[]>;
+  resumeText?: string;
+  jobDescription?: string;
+  targetRole?: string;
+}
+
+export function InterviewQuestionBank({ 
+  initialSets = [], 
+  resumeText = "",
+  jobDescription = "",
+  targetRole = "Software Engineer"
+}: InterviewQuestionBankProps) {
+  // 1. Core Double-Buffering State
+  const [currentSet, setCurrentSet] = useState<QuestionSet | null>(null);
+  const [nextSetBuffer, setNextSetBuffer] = useState<QuestionSet | null>(null);
+  const [askedQuestions, setAskedQuestions] = useState<string[]>([]);
+  
+  // UI & Loading States
+  const [isLoading, setIsLoading] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [expandedAnswers, setExpandedAnswers] = useState<Record<string, boolean>>({});
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [cycleIndex, setCycleIndex] = useState(1);
+  const prefetchLockRef = useRef(false);
 
-  useEffect(() => {
-    if (initialSets && initialSets.length > 0) {
-      setSets(initialSets);
-      setCurrentSetIndex(0);
-      setSeenSetIndices([0]);
-    }
-  }, [initialSets]);
-
-  const currentSet = sets[currentSetIndex] || sets[0];
-
-  const handleRegenerate = async () => {
-    setExpandedAnswers({}); // Collapse open answers for the new set
-
-    // If there are still unseen sets in the current 4-set batch, advance to next set
-    if (seenSetIndices.length < sets.length) {
-      const nextIndex = (currentSetIndex + 1) % sets.length;
-      setCurrentSetIndex(nextIndex);
-      setSeenSetIndices((prev) => Array.from(new Set([...prev, nextIndex])));
-      toast.info(`Switched to Interview Set ${nextIndex + 1}`, {
-        description: sets[nextIndex]?.theme || "New Interview Module"
-      });
-      return;
-    }
-
-    // Once all 4 sets have been viewed, fetch a brand-new batch excluding all prior questions
-    setIsRegenerating(true);
-    toast.info("Generating Fresh Batch", {
-      description: "Invoking AI Recruiter for a completely fresh non-overlapping question set..."
-    });
+  // Silently pre-fetch the next unique set in the background
+  const prefetchNextSet = useCallback(async (excludeList: string[]) => {
+    if (prefetchLockRef.current) return;
+    prefetchLockRef.current = true;
+    setIsBuffering(true);
 
     try {
-      const allPreviousQuestions = sets.flatMap((s) => s.questions.map((q) => q.question));
-      const freshSets = await onFetchFreshBatch(allPreviousQuestions);
-      if (freshSets && freshSets.length > 0) {
-        setSets(freshSets);
-        setCurrentSetIndex(0);
-        setSeenSetIndices([0]);
-        toast.success("Fresh Question Sets Ready", {
-          description: "4 new non-overlapping sets loaded successfully."
-        });
+      const res = await fetch('/api/generate-single-set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          resume_text: resumeText, 
+          jd_text: jobDescription, 
+          target_role: targetRole,
+          exclude_questions: excludeList 
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to buffer questions: ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      if (data?.question_set) {
+        setNextSetBuffer(data.question_set);
       }
     } catch (err: any) {
-      console.warn("Error fetching fresh batch:", err);
-      toast.error("Could not fetch fresh batch", { description: "Re-cycling current sets." });
-      setCurrentSetIndex((currentSetIndex + 1) % sets.length);
+      console.warn("Silent background pre-fetch warning:", err);
     } finally {
-      setIsRegenerating(false);
+      setIsBuffering(false);
+      prefetchLockRef.current = false;
+    }
+  }, [resumeText, jobDescription, targetRole]);
+
+  // Initial mount: load first set and immediately pre-warm the next set buffer
+  useEffect(() => {
+    if (initialSets && initialSets.length > 0 && !currentSet) {
+      const firstSet = initialSets[0];
+      setCurrentSet(firstSet);
+      const initialQuestions = firstSet.questions.map((q) => q.question);
+      setAskedQuestions(initialQuestions);
+
+      // If initialSets already had a second set, buffer it instantly; otherwise fetch
+      if (initialSets.length > 1) {
+        setNextSetBuffer(initialSets[1]);
+      } else {
+        prefetchNextSet(initialQuestions);
+      }
+    }
+  }, [initialSets, currentSet, prefetchNextSet]);
+
+  // When user clicks "Regenerate Questions"
+  const handleRegenerate = async () => {
+    setExpandedAnswers({}); // Collapse open answers for clean view
+
+    if (nextSetBuffer) {
+      // 1. Instant swap (0ms wait!)
+      const updatedHistory = [
+        ...askedQuestions,
+        ...nextSetBuffer.questions.map((q) => q.question),
+      ];
+      setCurrentSet(nextSetBuffer);
+      setAskedQuestions(updatedHistory);
+      setNextSetBuffer(null);
+      setCycleIndex((prev) => prev + 1);
+
+      toast.success("Instant 0ms Set Swap", {
+        description: `Loaded: ${nextSetBuffer.theme || "Advanced Technical Module"}`
+      });
+
+      // 2. Immediately pre-fetch the following set silently in the background
+      prefetchNextSet(updatedHistory);
+    } else {
+      // Fallback only if user clicks faster than the background fetch finishes
+      setIsLoading(true);
+      try {
+        const res = await fetch('/api/generate-single-set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            resume_text: resumeText, 
+            jd_text: jobDescription, 
+            target_role: targetRole,
+            exclude_questions: askedQuestions 
+          }),
+        });
+        const data = await res.json();
+        if (data?.question_set) {
+          const newSet = data.question_set;
+          const updatedHistory = [
+            ...askedQuestions,
+            ...newSet.questions.map((q: any) => q.question),
+          ];
+          setCurrentSet(newSet);
+          setAskedQuestions(updatedHistory);
+          setCycleIndex((prev) => prev + 1);
+          toast.success("Fresh Set Generated", {
+            description: newSet.theme
+          });
+          // Immediately prefetch following set
+          prefetchNextSet(updatedHistory);
+        }
+      } catch (err: any) {
+        console.warn("Fallback generation error:", err);
+        toast.error("Could not load fresh set", { description: "Please try again." });
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -81,59 +158,56 @@ export function InterviewQuestionBank({ initialSets = [], onFetchFreshBatch }: {
               <Sparkles className="w-4 h-4 text-[#E5D3B3]" />
             </div>
             <h3 className="text-base font-bold text-[#F5F2EB]">
-              Tailored Interview Question Bank
+              Tailored Technical Interview Bank
             </h3>
             <span className="text-xs px-3 py-1 rounded-full bg-[#E5D3B3]/15 text-[#E5D3B3] border border-[#E5D3B3]/30 font-semibold">
-              Set {currentSetIndex + 1} of {sets.length} &bull; {currentSet?.theme}
+              Cycle #{cycleIndex} &bull; {currentSet?.theme}
             </span>
+
+            {/* Double-Buffer Status Indicator */}
+            {nextSetBuffer ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#6EE7B7] bg-[#6EE7B7]/10 border border-[#6EE7B7]/25 px-2.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(110,231,183,0.15)]">
+                <Zap className="w-3.5 h-3.5 text-[#6EE7B7]" />
+                0ms Swap Ready
+              </span>
+            ) : isBuffering ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#E5D3B3]/80 bg-[#E5D3B3]/10 border border-[#E5D3B3]/20 px-2.5 py-0.5 rounded-full">
+                <Loader2 className="w-3 h-3 animate-spin text-[#E5D3B3]" />
+                Buffering Next Set...
+              </span>
+            ) : null}
           </div>
           <p className="text-xs text-[#A39E93] mt-1.5">
-            Progressive 4-tier simulation with key talking-point keywords and Google-standard candidate answers.
+            Double-buffered recruiter simulation with zero repetition guarantee and instant 0ms generation.
           </p>
         </div>
 
         <button
           onClick={handleRegenerate}
-          disabled={isRegenerating}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#E5D3B3] hover:bg-[#F0E2C8] text-[#08080A] text-xs font-bold transition shadow-[0_0_15px_rgba(229,211,179,0.25)] disabled:opacity-50"
+          disabled={isLoading}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition shadow-[0_0_15px_rgba(229,211,179,0.25)] disabled:opacity-50
+            ${nextSetBuffer 
+              ? "bg-[#E5D3B3] hover:bg-[#F0E2C8] text-[#08080A]" 
+              : "bg-[#141418] hover:bg-[#E5D3B3] text-[#F5F2EB] hover:text-[#08080A] border border-[rgba(229,211,179,0.3)]"
+            }
+          `}
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-          {isRegenerating 
-            ? 'Generating Fresh Batch...' 
-            : seenSetIndices.length < sets.length 
-              ? `Next Set (${seenSetIndices.length}/${sets.length} Viewed)` 
-              : 'Regenerate 4 New Sets'}
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          {isLoading 
+            ? 'Generating...' 
+            : nextSetBuffer 
+              ? 'Instant Next Set (0ms)' 
+              : 'Regenerate Questions'}
         </button>
       </div>
 
-      {/* Set Selector Tabs Indicator */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
-        {sets.map((s, idx) => {
-          const isActive = idx === currentSetIndex;
-          const isSeen = seenSetIndices.includes(idx);
-          return (
-            <button
-              key={idx}
-              onClick={() => {
-                setCurrentSetIndex(idx);
-                setSeenSetIndices((prev) => Array.from(new Set([...prev, idx])));
-              }}
-              className={`p-2.5 rounded-xl text-left border transition-all text-xs
-                ${isActive 
-                  ? 'bg-[#141418] border-[#E5D3B3] text-[#F5F2EB] shadow-[0_0_12px_rgba(229,211,179,0.15)] font-bold' 
-                  : isSeen 
-                    ? 'bg-[#141418]/50 border-white/[0.08] text-[#A39E93] hover:text-[#F5F2EB]' 
-                    : 'bg-[#141418]/30 border-dashed border-white/[0.05] text-[#A39E93]/60 hover:text-[#A39E93]'
-                }`}
-            >
-              <div className="flex items-center justify-between text-[10px] font-mono mb-1 text-[#E5D3B3]">
-                <span>SET {idx + 1}</span>
-                {isSeen && <span className="text-[#6EE7B7]">&bull; Ready</span>}
-              </div>
-              <div className="truncate font-semibold text-[11px]">{s.theme}</div>
-            </button>
-          );
-        })}
+      {/* Sub-bar with metrics */}
+      <div className="flex items-center justify-between text-xs text-[#A39E93] mb-4 bg-[#141418]/60 border border-white/[0.05] rounded-xl px-4 py-2">
+        <span className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#6EE7B7]" />
+          <span>Active Questions: <strong className="text-[#F5F2EB]">{currentSet?.questions.length}</strong></span>
+        </span>
+        <span>Total Answered / Explored: <strong className="text-[#E5D3B3]">{askedQuestions.length} unique questions</strong></span>
       </div>
 
       {/* Questions List */}

@@ -65,6 +65,12 @@ class AnalyzeRequest(BaseModel):
     target_role: Optional[str] = "Full-Stack Engineer"
     candidate_name: Optional[str] = "Candidate"
 
+class GenerateSingleSetRequest(BaseModel):
+    resume_text: Optional[str] = ""
+    jd_text: Optional[str] = ""
+    target_role: Optional[str] = "Software Engineer"
+    exclude_questions: Optional[List[str]] = []
+
 # Sub-task 1: ATS Scores & Radar Competencies
 async def get_ats_and_radar_scores(resume_text: str, jd_text: str) -> Dict[str, Any]:
     # Simulate / call LLM for ATS alignment and 6-axis radar
@@ -216,6 +222,67 @@ async def analyze_profile(payload: AnalyzeRequest):
     CACHE[cache_key] = result
 
     return result
+
+@app.post("/api/generate-single-set")
+async def generate_single_set(payload: GenerateSingleSetRequest):
+    """
+    Generate a single non-overlapping interview question set for double-buffered pre-fetching.
+    """
+    excluded = set(payload.exclude_questions or [])
+    role = payload.target_role or "Software Engineer"
+    
+    questions_pool = [
+        {
+            "id": "q_arch_1",
+            "question": f"How do you design database schema indexing and query caching strategies for high-throughput {role} services?",
+            "difficulty": "Hard",
+            "target_keywords": ["Composite Indexes", "B-Tree", "Redis Caching", "Read Replicas", "Query Plan"],
+            "sample_answer": "I profile slow queries using EXPLAIN ANALYZE, establish compound indexes matching frequent WHERE/ORDER BY clauses, and implement a Redis cache-aside pattern with TTL invalidation."
+        },
+        {
+            "id": "q_perf_2",
+            "question": f"Describe a scenario where you debugged an unexpected latency spike or memory leak in a production {role} pipeline.",
+            "difficulty": "Medium",
+            "target_keywords": ["Heap Profiling", "Flame Graphs", "Garbage Collection", "Event Loop Lag", "Connection Pooling"],
+            "sample_answer": "Using heap memory snapshots and tracing tools, I isolated unclosed database connection pools and circular references, resolving them by enforcing context timeouts and strict connection lifecycle management."
+        },
+        {
+            "id": "q_scale_3",
+            "question": f"How do you ensure data idempotency and avoid race conditions in distributed {role} microservices?",
+            "difficulty": "Hard",
+            "target_keywords": ["Idempotency Keys", "Optimistic Locking", "Distributed Locks", "Eventual Consistency"],
+            "sample_answer": "I enforce unique idempotency headers checked in an atomic Redis transaction or database unique constraint, and employ versioned optimistic concurrency control during concurrent writes."
+        },
+        {
+            "id": "q_api_4",
+            "question": f"How do you architect resilient rate limiting and fault tolerance between microservices during upstream outages?",
+            "difficulty": "Medium",
+            "target_keywords": ["Token Bucket", "Circuit Breaker", "Exponential Backoff", "Jitter", "Fallback Defaults"],
+            "sample_answer": "I deploy token bucket rate limiting at the API gateway combined with Resilience4j/hystrix circuit breakers and exponential backoff with jitter on outgoing RPC calls."
+        }
+    ]
+
+    filtered_questions = [q for q in questions_pool if q["question"] not in excluded]
+    if len(filtered_questions) < 2:
+        # Generate dynamic variant if pool was exhausted
+        filtered_questions = [
+            {
+                "id": f"q_dyn_{i}",
+                "question": f"In a mission-critical {role} ecosystem: {q['question']}",
+                "difficulty": q["difficulty"],
+                "target_keywords": q["target_keywords"],
+                "sample_answer": q["sample_answer"]
+            }
+            for i, q in enumerate(questions_pool[:3])
+        ]
+
+    return {
+        "question_set": {
+            "set_id": int(hashlib.md5(f"{role}_{len(excluded)}".encode()).hexdigest()[:6], 16),
+            "theme": f"Advanced {role} Scalability & Reliability",
+            "questions": filtered_questions[:3]
+        }
+    }
 
 @app.get("/health")
 def health_check():

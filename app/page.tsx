@@ -1056,12 +1056,18 @@ export default function Home() {
                                     <InterviewQuestionBank 
                                       initialSets={result.question_sets || generateDefaultQuestionSets(targetRole, result.matchedKeywords || ["Python", "FastAPI"], pastedResumeText)}
                                       onFetchFreshBatch={fetchFreshInterviewBatch}
+                                      resumeText={pastedResumeText}
+                                      jobDescription={jobDescription}
+                                      targetRole={targetRole}
                                     />
                                   </motion.div>
                                 ) : (
                                   <InterviewQuestionBank 
                                     initialSets={result.question_sets || generateDefaultQuestionSets(targetRole, result.matchedKeywords || ["Python", "FastAPI"], pastedResumeText)}
                                     onFetchFreshBatch={fetchFreshInterviewBatch}
+                                    resumeText={pastedResumeText}
+                                    jobDescription={jobDescription}
+                                    targetRole={targetRole}
                                   />
                                 )}
                               </div>
